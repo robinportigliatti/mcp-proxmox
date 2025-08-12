@@ -22,7 +22,13 @@ pip install -e .
 
 ## .env configuration
 
-Create a `.env` at project root (the server auto-loads it):
+- Copy `.env.example` to `.env` and edit values:
+
+```bash
+cp .env.example .env
+```
+
+`.env` keys:
 
 ```bash
 PROXMOX_API_URL="https://proxmox.example.com:8006"
