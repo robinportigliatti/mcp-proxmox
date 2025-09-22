@@ -83,3 +83,26 @@ def split_token_id(token_id: str) -> Dict[str, str]:
 
 def now_ms() -> int:
     return int(time.time() * 1000)
+
+
+def require_confirm(confirm: Optional[bool]) -> None:
+    """Require confirmation for destructive operations."""
+    if not confirm:
+        raise ValueError("This operation is destructive. Pass confirm=true to proceed.")
+
+
+def format_size(size_bytes: int) -> str:
+    """Format byte size into human readable format."""
+    if size_bytes == 0:
+        return "0 B"
+    
+    size_names = ["B", "KB", "MB", "GB", "TB", "PB"]
+    i = 0
+    while size_bytes >= 1024 and i < len(size_names) - 1:
+        size_bytes /= 1024.0
+        i += 1
+    
+    if i == 0:
+        return f"{int(size_bytes)} {size_names[i]}"
+    else:
+        return f"{size_bytes:.1f} {size_names[i]}"
