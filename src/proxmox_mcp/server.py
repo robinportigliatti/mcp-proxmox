@@ -3397,41 +3397,42 @@ def main() -> None:
         @app.get("/tools")
         async def list_tools():
             """List all available MCP tools"""
-            # Get tools from FastMCP server
-            # FastMCP stores tools in _tool_handlers
-            tools_dict = {}
-            if hasattr(server, '_tool_handlers'):
-                tools_dict = server._tool_handlers
-            elif hasattr(server, 'tools'):
-                tools_dict = server.tools
-            elif hasattr(server, '_tool_registry'):
-                tools_dict = server._tool_registry
-            
-            tools_list = []
-            for name, handler in tools_dict.items():
-                # Extract function from handler
-                func = handler if callable(handler) else getattr(handler, 'func', None)
-                description = "No description available"
-                if func and hasattr(func, '__doc__') and func.__doc__:
-                    description = func.__doc__.strip().split('\n')[0]  # First line only
+            # Use FastMCP's built-in list_tools() method (async)
+            try:
+                mcp_tools = await server.list_tools()
                 
-                tools_list.append({
-                    "name": name,
-                    "description": description
-                })
-            
-            return {
-                "total": len(tools_list),
-                "tools": tools_list
-            }
+                tools_list = []
+                for tool in mcp_tools:
+                    tools_list.append({
+                        "name": tool.name,
+                        "description": tool.description or "No description available"
+                    })
+                
+                return {
+                    "total": len(tools_list),
+                    "tools": tools_list
+                }
+            except Exception as e:
+                return JSONResponse(
+                    status_code=500,
+                    content={
+                        "error": f"Failed to list tools: {str(e)}",
+                        "type": type(e).__name__
+                    }
+                )
         
         @app.post("/execute")
-        async def execute_tool(request: Request):
-            """Execute an MCP tool"""
+        async def execute_tool(tool: str, params: dict = None):
+            """Execute an MCP tool
+            
+            Args:
+                tool: Name of the tool to execute
+                params: Tool parameters (optional)
+            """
             try:
-                data = await request.json()
-                tool_name = data.get("tool")
-                params = data.get("params", {})
+                if params is None:
+                    params = {}
+                tool_name = tool
                 
                 if not tool_name:
                     return JSONResponse(
@@ -3439,34 +3440,8 @@ def main() -> None:
                         content={"error": "Missing 'tool' parameter"}
                     )
                 
-                # Get the tool handler from FastMCP
-                tools_dict = {}
-                if hasattr(server, '_tool_handlers'):
-                    tools_dict = server._tool_handlers
-                elif hasattr(server, 'tools'):
-                    tools_dict = server.tools
-                elif hasattr(server, '_tool_registry'):
-                    tools_dict = server._tool_registry
-                
-                tool_handler = tools_dict.get(tool_name)
-                
-                if not tool_handler:
-                    return JSONResponse(
-                        status_code=404,
-                        content={"error": f"Tool '{tool_name}' not found"}
-                    )
-                
-                # Extract the actual function
-                tool_func = tool_handler if callable(tool_handler) else getattr(tool_handler, 'func', None)
-                
-                if not tool_func:
-                    return JSONResponse(
-                        status_code=500,
-                        content={"error": f"Tool '{tool_name}' is not callable"}
-                    )
-                
-                # Execute the tool
-                result = await tool_func(**params)
+                # Use FastMCP's built-in call_tool() method (async)
+                result = await server.call_tool(tool_name, params)
                 
                 return {
                     "success": True,
@@ -3474,6 +3449,15 @@ def main() -> None:
                     "result": result
                 }
                 
+            except KeyError as e:
+                return JSONResponse(
+                    status_code=404,
+                    content={
+                        "success": False,
+                        "error": f"Tool '{tool_name}' not found",
+                        "type": "ToolNotFound"
+                    }
+                )
             except TypeError as e:
                 return JSONResponse(
                     status_code=400,
