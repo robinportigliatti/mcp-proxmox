@@ -1,81 +1,154 @@
 # MCP Proxmox Server
 
-Advanced Proxmox Model Context Protocol (MCP) server in Python exposing rich Proxmox utilities for discovery, lifecycle, networking, snapshots/backups, metrics, pools/permissions, and orchestration.
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+[![Python 3.8+](https://img.shields.io/badge/python-3.8+-blue.svg)](https://www.python.org/downloads/)
 
-- Guide reference: [MCP Quickstart (Python)](https://modelcontextprotocol.io/quickstart/server#python)
-- Structure mirrors: [`bsahane/mcp-ansible`](https://github.com/bsahane/mcp-ansible/tree/main)
+A comprehensive Model Context Protocol (MCP) server for Proxmox VE, providing advanced automation, orchestration, and management capabilities through a rich set of tools.
 
-## Quick start
+## 🚀 Features
+
+### Core Capabilities
+- **VM & LXC Management**: Full lifecycle management (create, clone, start, stop, migrate, delete)
+- **Cloud-Init Integration**: Automated VM provisioning with network configuration
+- **Snapshot & Backup**: Comprehensive backup and restore operations
+- **Network Management**: VLAN configuration, firewall rules, and bridge management
+- **Storage Operations**: Multi-storage support with content management
+- **Monitoring & Metrics**: Real-time resource monitoring and performance tracking
+- **User & Permissions**: Role-based access control and pool management
+
+### Advanced Features
+- **Multi-Cluster Support**: Manage multiple Proxmox clusters from a single interface
+- **Security & Authentication**: MFA setup, certificate management, and secret storage
+- **Infrastructure as Code**: Terraform and Ansible integration
+- **AI-Powered Optimization**: Predictive scaling and anomaly detection
+- **Enterprise Features**: Multi-tenancy, compliance scanning, and cost management
+- **Notes Management**: HTML/Markdown formatted notes for VMs and LXCs
+- **Specialized Deployments**: OpenShift, RHCOS, Windows, and Docker Swarm support
+
+## 📋 Prerequisites
+
+- Python 3.8 or higher
+- Proxmox VE 7.0 or higher
+- API token with appropriate permissions
+
+## 🔧 Installation
+
+### 1. Clone the Repository
 
 ```bash
 git clone https://github.com/bsahane/mcp-proxmox.git
 cd mcp-proxmox
+```
 
+### 2. Set Up Virtual Environment
+
+```bash
 python3 -m venv .venv
-source .venv/bin/activate
+source .venv/bin/activate  # On Windows: .venv\Scripts\activate
 python -m pip install -U pip
-pip install -r requirements.txt
+```
 
-# (Optional) install the package locally
+### 3. Install Dependencies
+
+```bash
+pip install -r requirements.txt
+```
+
+### 4. Install Package (Optional)
+
+```bash
 pip install -e .
 ```
 
-## .env configuration
+## ⚙️ Configuration
 
-- Copy `.env.example` to `.env` and edit values:
+### Environment Setup
+
+Create a `.env` file in the project root:
 
 ```bash
 cp .env.example .env
 ```
 
-`.env` keys:
+### Required Environment Variables
 
 ```bash
+# Proxmox API Configuration
 PROXMOX_API_URL="https://proxmox.example.com:8006"
 PROXMOX_TOKEN_ID="root@pam!mcp-proxmox"
-PROXMOX_TOKEN_SECRET="<secret>"
+PROXMOX_TOKEN_SECRET="your-secret-token"
 PROXMOX_VERIFY="true"
+
+# Default Settings
 PROXMOX_DEFAULT_NODE="pve"
 PROXMOX_DEFAULT_STORAGE="local-lvm"
 PROXMOX_DEFAULT_BRIDGE="vmbr0"
 ```
 
-Notes:
-- Use an API token with appropriate ACLs; for discovery, `PVEAuditor` at `/` is sufficient; for lifecycle, grant narrower roles (e.g., `PVEVMAdmin`) on a pool.
-- Using `.env` avoids zsh history expansion issues with `!` in token IDs.
+### Multi-Cluster Configuration (Optional)
 
-## Run the MCP server (stdio)
+For managing multiple clusters, add cluster-specific configurations:
 
-Preferred (module form):
+```bash
+# Cluster 1
+PROXMOX_CLUSTER_1_NAME="production"
+PROXMOX_CLUSTER_1_API_URL="https://prod-proxmox.example.com:8006"
+PROXMOX_CLUSTER_1_TOKEN_ID="root@pam!prod-token"
+PROXMOX_CLUSTER_1_TOKEN_SECRET="prod-secret"
+
+# Cluster 2
+PROXMOX_CLUSTER_2_NAME="staging"
+PROXMOX_CLUSTER_2_API_URL="https://staging-proxmox.example.com:8006"
+PROXMOX_CLUSTER_2_TOKEN_ID="root@pam!staging-token"
+PROXMOX_CLUSTER_2_TOKEN_SECRET="staging-secret"
+```
+
+### API Token Setup
+
+1. Log in to your Proxmox web interface
+2. Navigate to **Datacenter → Permissions → API Tokens**
+3. Create a new token with appropriate privileges:
+   - **Discovery/Read-only**: `PVEAuditor` role at `/`
+   - **Full Management**: `PVEVMAdmin` role or higher
+
+## 🎯 Usage
+
+### Running the MCP Server
+
+**Preferred method (module form):**
 
 ```bash
 source .venv/bin/activate
 python -m proxmox_mcp.server
 ```
 
-Or installed console script:
+**Alternative (console script):**
 
 ```bash
 source .venv/bin/activate
 proxmox-mcp
 ```
 
-## Configure in Cursor
+### Integration with Cursor
 
-Edit `~/.cursor/mcp.json` (portable example):
+Edit `~/.cursor/mcp.json`:
 
 ```json
 {
   "mcpServers": {
     "proxmox-mcp": {
       "command": "python",
-      "args": ["-m", "proxmox_mcp.server"]
+      "args": ["-m", "proxmox_mcp.server"],
+      "cwd": "/path/to/mcp-proxmox",
+      "env": {
+        "PYTHONPATH": "/path/to/mcp-proxmox/src"
+      }
     }
   }
 }
 ```
 
-## Configure in Claude for Desktop
+### Integration with Claude Desktop
 
 Add to `~/Library/Application Support/Claude/claude_desktop_config.json`:
 
@@ -84,161 +157,189 @@ Add to `~/Library/Application Support/Claude/claude_desktop_config.json`:
   "mcpServers": {
     "proxmox-mcp": {
       "command": "python",
-      "args": ["-m", "proxmox_mcp.server"]
+      "args": ["-m", "proxmox_mcp.server"],
+      "cwd": "/path/to/mcp-proxmox",
+      "env": {
+        "PYTHONPATH": "/path/to/mcp-proxmox/src"
+      }
     }
   }
 }
 ```
 
-## Tools reference
+## 🛠️ Available Tools
 
-All tools are available via MCP. Destructive tools accept `confirm`, and most write operations support `dry_run`, `wait`, `timeout`, `poll_interval`.
+### Discovery & Monitoring
+- `proxmox-list-nodes` - List all cluster nodes
+- `proxmox-node-status` - Get detailed node information
+- `proxmox-list-vms` - List virtual machines
+- `proxmox-vm-info` - Get VM details
+- `proxmox-list-lxc` - List LXC containers
+- `proxmox-lxc-info` - Get container details
+- `proxmox-list-storage` - List storage configurations
+- `proxmox-storage-content` - View storage content
+- `proxmox-list-bridges` - List network bridges
+- `proxmox-vm-metrics` - Get VM performance metrics
+- `proxmox-node-metrics` - Get node performance metrics
 
-Format below per tool:
-- Description
-- Example question → Possible answer (shape)
+### VM Lifecycle Management
+- `proxmox-create-vm` - Create new virtual machine
+- `proxmox-clone-vm` - Clone existing VM
+- `proxmox-delete-vm` - Delete virtual machine
+- `proxmox-start-vm` - Start VM
+- `proxmox-stop-vm` - Stop VM
+- `proxmox-reboot-vm` - Reboot VM
+- `proxmox-shutdown-vm` - Graceful shutdown
+- `proxmox-migrate-vm` - Live/offline migration
+- `proxmox-resize-vm-disk` - Expand VM disk
+- `proxmox-configure-vm` - Update VM configuration
+- `proxmox-template-vm` - Convert VM to template
 
-### Core discovery
-- `proxmox-list-nodes`
-  - List cluster nodes (name, status, CPU/RAM/disk summary)
-  - Example: "List cluster nodes"
-  - Answer: `[ { "node": "pve", "status": "online", ... } ]`
-- `proxmox-node-status`
-  - Detailed node health (load, uptime, versions)
-  - Example: `{ "node": "pve" }`
-  - Answer: `{ "kversion": "...", "uptime": 123456, ... }`
-- `proxmox-list-vms`
-  - List VMs (filter by node, status, name substring)
-  - Example: `{ "node": "pve", "status": "running" }`
-  - Answer: `[ { "vmid": 100, "name": "web01", ... } ]`
-- `proxmox-vm-info`
-  - Get VM details by `vmid` or `name` (+optional node), includes config
-  - Example: `{ "name": "web01" }`
-  - Answer: `{ "selector": {...}, "config": {...} }`
-- `proxmox-list-lxc`
-  - List LXC containers (filterable)
-  - Example: `{ "node": "pve" }`
-  - Answer: `[ { "vmid": 50001, "name": "ct01", ... } ]`
-- `proxmox-lxc-info`
-  - Get LXC details by `vmid` or `name` (+optional node)
-  - Example: `{ "vmid": 50001 }`
-  - Answer: `{ "selector": {...}, "config": {...} }`
-- `proxmox-list-storage`
-  - List storages (types, free/used)
-  - Example: `{}`
-  - Answer: `[ { "storage": "local-lvm", "type": "lvmthin", ... } ]`
-- `proxmox-storage-content`
-  - List storage content (ISOs, templates, images)
-  - Example: `{ "node": "pve", "storage": "local" }`
-  - Answer: `[ { "volid": "local:iso/foo.iso", ... } ]`
-- `proxmox-list-bridges`
-  - List node bridges (vmbr...)
-  - Example: `{ "node": "pve" }`
-  - Answer: `[ { "iface": "vmbr0", ... } ]`
-- `proxmox-list-tasks`
-  - Recent tasks (filter by node, user)
-  - Example: `{ "node": "pve", "limit": 20 }`
-  - Answer: `[ { "upid": "UPID:...", "status": "OK" }, ... ]`
-- `proxmox-task-status`
-  - Check a task status
-  - Example: `{ "upid": "UPID:..." }`
-  - Answer: `{ "status": "stopped", "exitstatus": "OK" }`
+### LXC Container Management
+- `proxmox-create-lxc` - Create new container
+- `proxmox-delete-lxc` - Delete container
+- `proxmox-start-lxc` - Start container
+- `proxmox-stop-lxc` - Stop container
+- `proxmox-configure-lxc` - Update container configuration
 
-### VM lifecycle
-- `proxmox-clone-vm`
-  - Clone template VM to new VMID/name (supports target node, storage)
-  - Example: `{ "source_vmid": 101, "new_vmid": 50009, "name": "web01", "storage": "local-lvm", "confirm": true, "wait": true }`
-  - Answer: `{ "upid": "UPID:...", "status": {...} }`
-- `proxmox-create-vm`
-  - Create new VM from ISO/template (minimal config)
-  - Example: `{ "node": "pve", "vmid": 200, "name": "web02", "iso": "debian.iso", "confirm": true }`
-  - Answer: `{ "upid": "UPID:..." }`
-- `proxmox-delete-vm`
-  - Delete VM (confirm, purge)
-  - Example: `{ "name": "web01", "purge": true, "confirm": true }`
-  - Answer: `{ "upid": "UPID:..." }`
-- `proxmox-start-vm` / `proxmox-stop-vm` / `proxmox-reboot-vm` / `proxmox-shutdown-vm`
-  - Manage power state (stop supports hard and timeout)
-  - Example: `{ "name": "web01", "wait": true }`
-  - Answer: `{ "upid": "UPID:...", "status": {...} }`
-- `proxmox-migrate-vm`
-  - Live/offline migrate to another node
-  - Example: `{ "name": "web01", "target_node": "pve2", "live": true }`
-  - Answer: `{ "upid": "UPID:..." }`
-- `proxmox-resize-vm-disk`
-  - Grow disk (GB) on target disk (e.g., scsi0)
-  - Example: `{ "name": "web01", "disk": "scsi0", "grow_gb": 10, "confirm": true, "wait": true }`
-  - Answer: `{ "upid": "UPID:...", "status": {...} }`
-- `proxmox-configure-vm`
-  - Set whitelisted params (cores, memory, balloon, netX, agent, etc.)
-  - Example: `{ "name": "web01", "params": { "memory": 4096, "cores": 4 }, "confirm": true }`
-  - Answer: `{ "upid": "UPID:..." }` or `{ "result": null }`
+### Cloud-Init & Networking
+- `proxmox-cloudinit-set` - Configure cloud-init parameters
+- `proxmox-vm-nic-add` - Add network interface
+- `proxmox-vm-nic-remove` - Remove network interface
+- `proxmox-vm-firewall-get` - Get firewall configuration
+- `proxmox-vm-firewall-set` - Set firewall rules
+- `proxmox-create-vlan` - Create VLAN configuration
 
-### LXC lifecycle
-- `proxmox-create-lxc`
-  - Create container from template (CPU/mem, rootfs size, net, storage)
-  - Example: `{ "node": "pve", "vmid": 50050, "hostname": "ct01", "ostemplate": "debian-12.tar.zst", "confirm": true }`
-  - Answer: `{ "upid": "UPID:..." }`
-- `proxmox-delete-lxc` / `proxmox-start-lxc` / `proxmox-stop-lxc` / `proxmox-configure-lxc`
-  - Manage container lifecycle and config
+### Snapshots & Backups
+- `proxmox-list-snapshots` - List VM snapshots
+- `proxmox-create-snapshot` - Create snapshot
+- `proxmox-delete-snapshot` - Delete snapshot
+- `proxmox-rollback-snapshot` - Rollback to snapshot
+- `proxmox-backup-vm` - Backup virtual machine
+- `proxmox-restore-vm` - Restore from backup
 
-### Cloud-init & networking
-- `proxmox-cloudinit-set`
-  - Set CI params (ipconfig0, sshkeys, ciuser/cipassword)
-  - Example: `{ "name": "web01", "ipconfig0": "ip=192.168.1.50/24,gw=192.168.1.1", "confirm": true }`
-  - Answer: `{ "upid": "UPID:..." }` or `{ "result": null }`
-- `proxmox-vm-nic-add` / `proxmox-vm-nic-remove`
-  - Add/remove NICs (bridge, model, VLAN)
-- `proxmox-vm-firewall-get` / `proxmox-vm-firewall-set`
-  - Get/set per-VM firewall state and rules
+### Storage & Templates
+- `proxmox-upload-iso` - Upload ISO image
+- `proxmox-upload-template` - Upload container template
 
-### Images, templates, snapshots, backups
-- `proxmox-upload-iso` / `proxmox-upload-template`
-  - Upload ISO or LXC template to storage
-- `proxmox-template-vm`
-  - Convert VM to template
-- `proxmox-list-snapshots` / `proxmox-create-snapshot` / `proxmox-delete-snapshot` / `proxmox-rollback-snapshot`
-  - Manage snapshots; rollback supports `wait`
-- `proxmox-backup-vm` / `proxmox-restore-vm`
-  - Run vzdump and restore archives
+### Access Control
+- `proxmox-list-pools` - List resource pools
+- `proxmox-create-pool` - Create resource pool
+- `proxmox-delete-pool` - Delete resource pool
+- `proxmox-pool-add` - Add resources to pool
+- `proxmox-pool-remove` - Remove resources from pool
+- `proxmox-list-users` - List users
+- `proxmox-list-roles` - List roles
+- `proxmox-assign-permission` - Assign permissions
 
-### Metrics and monitoring
-- `proxmox-vm-metrics`
-  - RRD metrics for VM (timeframe, cf)
-- `proxmox-node-metrics`
-  - RRD metrics for node
+### Notes Management
+- `proxmox-vm-notes-read` - Read VM notes (HTML/Markdown)
+- `proxmox-vm-notes-update` - Update VM notes
+- `proxmox-vm-notes-remove` - Remove VM notes
+- `proxmox-lxc-notes-read` - Read LXC notes
+- `proxmox-lxc-notes-update` - Update LXC notes
+- `proxmox-lxc-notes-remove` - Remove LXC notes
+- `proxmox-notes-template` - Generate notes template
 
-### Pools, users, permissions
-- `proxmox-list-pools` / `proxmox-create-pool` / `proxmox-delete-pool` / `proxmox-pool-add` / `proxmox-pool-remove`
-- `proxmox-list-users` / `proxmox-list-roles` / `proxmox-assign-permission`
+### Multi-Cluster Operations
+- `proxmox-list-all-clusters` - List configured clusters
+- `proxmox-list-all-nodes-from-all-clusters` - List all nodes
+- `proxmox-list-all-vms-from-all-clusters` - List all VMs
+- `proxmox-get-all-cluster-status` - Get cluster health status
 
-### Orchestration helpers
-- `proxmox-wait-task`
-  - Poll a task until done/timeout
-- `proxmox-register-vm-as-host`
-  - Emit JSON/INI snippet for Ansible inventory (hostname, IP, SSH user/key)
-- `proxmox-guest-exec` (optional)
-  - Run a command via QEMU Guest Agent (requires agent in guest)
+### Task Management
+- `proxmox-list-tasks` - List recent tasks
+- `proxmox-task-status` - Get task status
+- `proxmox-wait-task` - Wait for task completion
 
-## Examples
+### Orchestration
+- `proxmox-register-vm-as-host` - Generate Ansible inventory
+- `proxmox-guest-exec` - Execute commands via QEMU Guest Agent
 
-- List nodes: `{}` for `proxmox-list-nodes`
-- VMs on node `pve`: `{ "node": "pve" }` for `proxmox-list-vms`
-- Clone a template: `{ "source_vmid": 101, "new_vmid": 50009, "name": "web01", "storage": "local-lvm", "confirm": true, "wait": true }`
-- Configure Cloud-init IP: `{ "name": "web01", "ipconfig0": "ip=192.168.1.50/24,gw=192.168.1.1", "confirm": true }`
+## 📚 Documentation
 
-## Notes
+Additional documentation is available in the `docs/` directory:
 
-- Server uses stdio transport; prints only MCP protocol to stdout. Logs go to stderr.
-- Authentication uses your environment variables and/or `.env` file.
-- Name collisions across nodes return clear errors unless you specify `node`.
+- **Multi-Cluster Setup**: `docs/MULTI_CLUSTER_QUICK_START.md`
+- **OpenShift Deployment**: `docs/openshift_lan_exposure_guide.md`
+- **Server Management**: `docs/MCP_SERVER_START_GUIDE.md`
+- **Feature Specifications**: `docs/MULTI_CLUSTER_SPEC.md`
+- **Notes Management**: `docs/NOTES_FEATURE_IMPLEMENTATION.md`
 
-## Development
+## 🔒 Security Best Practices
+
+1. **Never store secrets in VM/LXC notes** - Use the `proxmox-secret-store` tool instead
+2. **Use API tokens** instead of username/password authentication
+3. **Apply least privilege** - Grant only necessary permissions
+4. **Enable SSL verification** in production environments
+5. **Rotate API tokens** regularly
+6. **Use separate tokens** for different environments (dev/staging/prod)
+
+## 🧪 Testing
+
+Run the test suite:
 
 ```bash
-# Lint/type-check as needed (not included by default)
+source .venv/bin/activate
+python tests/test_notes_feature.py
 ```
 
-## License
+## 📁 Project Structure
 
-MIT
+```
+mcp-proxmox/
+├── src/
+│   └── proxmox_mcp/
+│       ├── __init__.py
+│       ├── server.py              # Main MCP server
+│       ├── client.py              # Proxmox API client
+│       ├── utils.py               # Utility functions
+│       ├── cloudinit.py           # Cloud-init support
+│       ├── notes_manager.py       # Notes management
+│       ├── rhcos.py               # Red Hat CoreOS support
+│       ├── windows.py             # Windows VM support
+│       └── docker_swarm.py        # Docker Swarm integration
+├── tests/                         # Test files
+├── scripts/                       # Utility scripts
+├── docs/                          # Documentation
+├── requirements.txt               # Python dependencies
+├── pyproject.toml                 # Package configuration
+├── .env.example                   # Environment template
+├── .gitignore                     # Git ignore rules
+└── README.md                      # This file
+```
+
+## 🤝 Contributing
+
+Contributions are welcome! Please feel free to submit a Pull Request.
+
+1. Fork the repository
+2. Create your feature branch (`git checkout -b feature/amazing-feature`)
+3. Commit your changes (`git commit -m 'Add some amazing feature'`)
+4. Push to the branch (`git push origin feature/amazing-feature`)
+5. Open a Pull Request
+
+## 📝 License
+
+This project is licensed under the MIT License - see the LICENSE file for details.
+
+## 🙏 Acknowledgments
+
+- Built with [FastMCP](https://github.com/jlowin/fastmcp)
+- Proxmox API via [Proxmoxer](https://github.com/proxmoxer/proxmoxer)
+- Inspired by [MCP Ansible](https://github.com/bsahane/mcp-ansible)
+
+## 📞 Support
+
+For issues, questions, or contributions:
+- **GitHub Issues**: [Create an issue](https://github.com/bsahane/mcp-proxmox/issues)
+- **Documentation**: Check the `docs/` directory
+- **MCP Reference**: [Model Context Protocol](https://modelcontextprotocol.io/)
+
+## 🔄 Version History
+
+See [CHANGELOG.md](CHANGELOG.md) for version history and release notes.
+
+---
+
+**Note**: This server uses stdio transport and prints only MCP protocol messages to stdout. All logs are sent to stderr for proper MCP operation.
