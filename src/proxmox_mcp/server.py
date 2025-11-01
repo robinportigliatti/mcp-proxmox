@@ -3317,10 +3317,24 @@ def main() -> None:
         server.run("stdio")
     
     elif args.transport in ["sse", "http"]:
-        # SSE or HTTP mode for remote access
-        print(f"Starting MCP Proxmox Server in {args.transport.upper()} mode...", file=sys.stderr)
-        print(f"Server will be available at: http://{args.host}:{args.port}", file=sys.stderr)
-        print(f"API documentation: http://{args.host}:{args.port}/docs", file=sys.stderr)
+        # For SSE/HTTP modes, we need to use FastMCP's built-in HTTP support
+        # Currently, FastMCP primarily supports STDIO
+        # For now, recommend using STDIO mode with Cursor
+        print(f"ERROR: {args.transport.upper()} mode is not compatible with Cursor's MCP client.", file=sys.stderr)
+        print("", file=sys.stderr)
+        print("Cursor requires STDIO mode for MCP communication.", file=sys.stderr)
+        print("", file=sys.stderr)
+        print("To use with Cursor, update your ~/.cursor/mcp.json:", file=sys.stderr)
+        print('  "proxmox-mcp": {', file=sys.stderr)
+        print(f'    "command": "{sys.executable}",', file=sys.stderr)
+        print('    "args": ["-m", "proxmox_mcp.server"]', file=sys.stderr)
+        print('  }', file=sys.stderr)
+        print("", file=sys.stderr)
+        print("For remote access, consider:", file=sys.stderr)
+        print("1. Running the server in STDIO mode locally", file=sys.stderr)
+        print("2. Using SSH port forwarding for remote access", file=sys.stderr)
+        print("3. Setting up a reverse proxy (nginx/caddy) for HTTP access", file=sys.stderr)
+        sys.exit(1)
         
         # Import FastAPI dependencies
         try:
