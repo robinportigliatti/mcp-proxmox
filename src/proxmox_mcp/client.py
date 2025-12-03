@@ -223,12 +223,13 @@ class ProxmoxClient:
         }
         if iso:
             # ide2 expects format storage:iso/filename.iso,media=cdrom
-            params["ide2"] = iso if ":" in iso else f"{storage_id}:iso/{iso}"
+            iso_path = iso if ":" in iso else f"{storage_id}:iso/{iso}"
+            params["ide2"] = f"{iso_path},media=cdrom"
             params["boot"] = "order=scsi0;ide2;net0"
         return self._api.nodes(node).qemu.post(**params)
 
     def delete_vm(self, node: str, vmid: int, purge: bool = True) -> str:
-        return self._api.nodes(node).qemu(vmid).delete.post(purge=int(purge))
+        return self._api.nodes(node).qemu(vmid).delete(purge=int(purge))
 
     def start_vm(self, node: str, vmid: int) -> str:
         return self._api.nodes(node).qemu(vmid).status.start.post()
@@ -294,7 +295,7 @@ class ProxmoxClient:
         return self._api.nodes(node).lxc.post(**params)
 
     def delete_lxc(self, node: str, vmid: int, purge: bool = True) -> str:
-        return self._api.nodes(node).lxc(vmid).delete.post(purge=int(purge))
+        return self._api.nodes(node).lxc(vmid).delete(purge=int(purge))
 
     def start_lxc(self, node: str, vmid: int) -> str:
         return self._api.nodes(node).lxc(vmid).status.start.post()
@@ -371,7 +372,7 @@ class ProxmoxClient:
         return self._api.nodes(node).qemu(vmid).snapshot.post(**params)
 
     def delete_snapshot(self, node: str, vmid: int, name: str) -> str:
-        return self._api.nodes(node).qemu(vmid).snapshot(name).delete.post()
+        return self._api.nodes(node).qemu(vmid).snapshot(name).delete()
 
     def rollback_snapshot(self, node: str, vmid: int, name: str) -> str:
         return self._api.nodes(node).qemu(vmid).snapshot(name).rollback.post()
