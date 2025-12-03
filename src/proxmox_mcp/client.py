@@ -162,13 +162,32 @@ class ProxmoxClient:
         return tasks[:limit]
 
     def task_status(self, upid: str, node: Optional[str] = None) -> Dict[str, Any]:
-        # If node is unknown, try cluster lookup then fall back to nodes
-        try:
-            return self._api.cluster.tasks(upid).status.get()
-        except Exception:
-            if not node:
-                raise
-            return self._api.nodes(node).tasks(upid).status.get()
+        """Get task status by UPID.
+
+        Args:
+            upid: Task UPID (e.g., 'UPID:pve:00001234:...')
+            node: Node name. If not provided, extracted from UPID.
+
+        Returns:
+            Task status dict with 'status', 'exitstatus', etc.
+        """
+        # Extract node from UPID if not provided
+        # UPID format: UPID:node:pid:pstart:starttime:type:id:user:
+        if not node:
+            try:
+                parts = upid.split(":")
+                if len(parts) >= 2:
+                    node = parts[1]
+            except Exception:
+                pass
+
+        if not node:
+            node = self.default_node
+
+        if not node:
+            raise ValueError("node is required (cannot extract from UPID)")
+
+        return self._api.nodes(node).tasks(upid).status.get()
 
     # -------- VM lifecycle --------
     def clone_vm(
@@ -357,6 +376,73 @@ class ProxmoxClient:
     def upload_template(self, node: str, storage: str, file_path: str) -> str:
         with open(file_path, "rb") as f:
             return self._api.nodes(node).storage(storage).upload.post(content="vztmpl", filename=os.path.basename(file_path), file=f)
+
+    def download_url(self, node: str, storage: str, url: str, filename: str, content: str = "iso", checksum: Optional[str] = None, checksum_algorithm: Optional[str] = None) -> str:
+        """Download file from URL directly to Proxmox storage.
+
+        Args:
+            node: Node name
+            storage: Storage name
+            url: URL to download from
+            filename: Target filename (e.g., 'ubuntu-24.04.iso')
+            content: Content type - 'iso' or 'vztmpl'
+            checksum: Optional checksum to verify download
+            checksum_algorithm: Checksum algorithm (e.g., 'sha256')
+
+        Returns:
+            UPID of the download task
+        """
+        params: Dict[str, Any] = {
+            "url": url,
+            "filename": filename,
+            "content": content,
+        }
+        if checksum and checksum_algorithm:
+            params["checksum"] = checksum
+            params["checksum-algorithm"] = checksum_algorithm
+        return self._api.nodes(node).storage(storage).post("download-url", **params)
+
+    def delete_storage_content(self, node: str, volid: str) -> str:
+        """Delete content (ISO, template, backup, etc.) from Proxmox storage.
+
+        Args:
+            node: Node name
+            volid: Volume ID to delete (e.g., 'local:iso/ubuntu.iso' or 'local:vztmpl/debian.tar.gz')
+
+        Returns:
+            UPID of the delete task or empty string on success
+        """
+        # volid format: storage:content_type/filename
+        # API endpoint: /nodes/{node}/storage/{storage}/content/{volume}
+        parts = volid.split(":")
+        if len(parts) != 2:
+            raise ValueError(f"Invalid volid format: {volid}. Expected 'storage:type/filename'")
+        storage = parts[0]
+        return self._api.nodes(node).storage(storage).content(volid).delete()
+
+    def list_appliance_templates(self, node: str) -> List[Dict[str, Any]]:
+        """List available appliance templates from Proxmox repository.
+
+        Args:
+            node: Node name
+
+        Returns:
+            List of available templates with metadata (template, headline, section, etc.)
+        """
+        return self._api.nodes(node).aplinfo.get()
+
+    def download_appliance_template(self, node: str, storage: str, template: str) -> str:
+        """Download appliance template from Proxmox repository to storage.
+
+        Args:
+            node: Node name
+            storage: Storage name
+            template: Template name (e.g., 'debian-12-standard_12.2-1_amd64.tar.zst')
+
+        Returns:
+            UPID of the download task
+        """
+        return self._api.nodes(node).aplinfo.post(storage=storage, template=template)
 
     def template_vm(self, node: str, vmid: int) -> str:
         return self._api.nodes(node).qemu(vmid).template.post()
