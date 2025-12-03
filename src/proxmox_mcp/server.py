@@ -326,6 +326,10 @@ async def proxmox_clone_vm(
     timeout: int = 900,
     poll_interval: float = 2.0,
 ) -> Dict[str, Any]:
+    """Clone an existing VM.
+
+    IMPORTANT: Use 'proxmox-list-storage' first to get available storage names,
+    as the default storage may not exist on all Proxmox installations."""
     client = get_client()
     node = source_node or client.default_node
     if not node:
@@ -378,6 +382,10 @@ async def proxmox_create_vm(
     timeout: int = 900,
     poll_interval: float = 2.0,
 ) -> Dict[str, Any]:
+    """Create a new VM.
+
+    IMPORTANT: Use 'proxmox-list-storage' first to get available storage names,
+    as the default storage may not exist on all Proxmox installations."""
     client = get_client()
     node_id = node or client.default_node
     if not node_id:
@@ -555,6 +563,10 @@ async def proxmox_create_lxc(
     timeout: int = 900,
     poll_interval: float = 2.0,
 ) -> Dict[str, Any]:
+    """Create a new LXC container.
+
+    IMPORTANT: Use 'proxmox-list-storage' first to get available storage names,
+    as the default storage may not exist on all Proxmox installations."""
     client = get_client()
     node_id = node or client.default_node
     if not node_id:
@@ -722,6 +734,10 @@ async def proxmox_vm_firewall_set(vmid: Optional[int] = None, name: Optional[str
 
 @server.tool("proxmox-upload-iso")
 async def proxmox_upload_iso(node: Optional[str] = None, storage: Optional[str] = None, file_path: str = "", confirm: Optional[bool] = None, dry_run: bool = False) -> Dict[str, Any]:
+    """Upload an ISO file to Proxmox storage.
+
+    IMPORTANT: Use 'proxmox-list-storage' first to get available storage names,
+    as the default storage may not exist on all Proxmox installations."""
     client = get_client()
     node_id = node or client.default_node
     storage_id = storage or client.default_storage
@@ -738,6 +754,10 @@ async def proxmox_upload_iso(node: Optional[str] = None, storage: Optional[str] 
 
 @server.tool("proxmox-upload-template")
 async def proxmox_upload_template(node: Optional[str] = None, storage: Optional[str] = None, file_path: str = "", confirm: Optional[bool] = None, dry_run: bool = False) -> Dict[str, Any]:
+    """Upload a container template to Proxmox storage.
+
+    IMPORTANT: Use 'proxmox-list-storage' first to get available storage names,
+    as the default storage may not exist on all Proxmox installations."""
     client = get_client()
     node_id = node or client.default_node
     storage_id = storage or client.default_storage
@@ -815,6 +835,10 @@ async def proxmox_rollback_snapshot(vmid: Optional[int] = None, name: Optional[s
 
 @server.tool("proxmox-backup-vm")
 async def proxmox_backup_vm(vmid: Optional[int] = None, name: Optional[str] = None, node: Optional[str] = None, mode: str = "snapshot", compress: str = "zstd", storage: Optional[str] = None, confirm: Optional[bool] = None, dry_run: bool = False, wait: bool = True, timeout: int = 3600, poll_interval: float = 5.0) -> Dict[str, Any]:
+    """Backup a VM to storage.
+
+    IMPORTANT: Use 'proxmox-list-storage' first to get available storage names,
+    as the default storage may not exist on all Proxmox installations."""
     client = get_client()
     vm_vmid, vm_node, _ = client.resolve_vm(vmid=vmid, name=name, node=node)
     require_confirm(confirm)
@@ -830,6 +854,10 @@ async def proxmox_backup_vm(vmid: Optional[int] = None, name: Optional[str] = No
 
 @server.tool("proxmox-restore-vm")
 async def proxmox_restore_vm(node: Optional[str] = None, vmid: int = 0, archive: str = "", storage: Optional[str] = None, force: bool = False, confirm: Optional[bool] = None, dry_run: bool = False, wait: bool = True, timeout: int = 3600, poll_interval: float = 5.0) -> Dict[str, Any]:
+    """Restore a VM from backup archive.
+
+    IMPORTANT: Use 'proxmox-list-storage' first to get available storage names,
+    as the default storage may not exist on all Proxmox installations."""
     client = get_client()
     node_id = node or client.default_node
     if not node_id:
@@ -1019,7 +1047,10 @@ async def proxmox_guest_exec(vmid: Optional[int] = None, name: Optional[str] = N
 
 @server.tool("proxmox-list-os-templates")
 async def proxmox_list_os_templates(node: Optional[str] = None, storage: Optional[str] = None) -> Dict[str, Any]:
-    """List available OS templates and their configurations."""
+    """List available OS templates and their configurations.
+
+    IMPORTANT: Use 'proxmox-list-storage' first to get available storage names,
+    as the default storage may not exist on all Proxmox installations."""
     client = get_client()
     node_id = node or client.default_node
     storage_id = storage or client.default_storage
@@ -1050,7 +1081,10 @@ async def proxmox_list_os_templates(node: Optional[str] = None, storage: Optiona
 
 @server.tool("proxmox-download-os-template")
 async def proxmox_download_os_template(template_name: str, node: Optional[str] = None, storage: Optional[str] = None, verify_checksum: bool = True, confirm: Optional[bool] = None, dry_run: bool = False) -> Dict[str, Any]:
-    """Download OS template from official sources."""
+    """Download OS template from official sources.
+
+    IMPORTANT: Use 'proxmox-list-storage' first to get available storage names,
+    as the default storage may not exist on all Proxmox installations."""
     client = get_client()
     node_id = node or client.default_node
     storage_id = storage or client.default_storage
