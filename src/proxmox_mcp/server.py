@@ -752,6 +752,220 @@ async def proxmox_upload_template(node: Optional[str] = None, storage: Optional[
     return {"upid": upid}
 
 
+@server.tool("proxmox-download-url")
+async def proxmox_download_url(
+    url: str,
+    filename: str,
+    node: Optional[str] = None,
+    storage: Optional[str] = None,
+    content: str = "iso",
+    checksum: Optional[str] = None,
+    checksum_algorithm: Optional[str] = None,
+    confirm: Optional[bool] = None,
+    dry_run: bool = False,
+    wait: bool = False,
+    timeout: int = 1800,
+    poll_interval: float = 5.0,
+) -> Dict[str, Any]:
+    """Download a file from URL directly to Proxmox storage.
+
+    This tool downloads ISO images or container templates from a URL
+    directly to Proxmox storage, without needing to upload from local disk.
+
+    IMPORTANT: Use 'proxmox-list-storage' first to get available storage names,
+    as the default storage may not exist on all Proxmox installations.
+
+    Args:
+        url: URL to download from (e.g., 'https://releases.ubuntu.com/24.04/ubuntu-24.04-live-server-amd64.iso')
+        filename: Target filename (e.g., 'ubuntu-24.04-server.iso')
+        node: Target node (defaults to PROXMOX_DEFAULT_NODE)
+        storage: Target storage (defaults to PROXMOX_DEFAULT_STORAGE)
+        content: Content type - 'iso' for ISO images, 'vztmpl' for container templates
+        checksum: Optional checksum to verify download integrity
+        checksum_algorithm: Checksum algorithm ('sha256', 'sha512', 'md5')
+        confirm: Confirm the operation
+        dry_run: If True, only show what would be done
+        wait: If True, wait for download to complete
+        timeout: Timeout in seconds when waiting (default 1800 = 30 min)
+        poll_interval: Poll interval in seconds when waiting
+    """
+    client = get_client()
+    node_id = node or client.default_node
+    storage_id = storage or client.default_storage
+    if not node_id or not storage_id:
+        raise ValueError("node and storage are required (or set defaults)")
+    if not url or not filename:
+        raise ValueError("url and filename are required")
+    if content not in ("iso", "vztmpl"):
+        raise ValueError("content must be 'iso' or 'vztmpl'")
+
+    require_confirm(confirm)
+
+    if dry_run:
+        return {
+            "dry_run": True,
+            "action": "download-url",
+            "params": {
+                "node": node_id,
+                "storage": storage_id,
+                "url": url,
+                "filename": filename,
+                "content": content,
+                "checksum": checksum,
+                "checksum_algorithm": checksum_algorithm,
+            }
+        }
+
+    upid = client.download_url(
+        node_id, storage_id, url, filename, content,
+        checksum=checksum, checksum_algorithm=checksum_algorithm
+    )
+    result: Dict[str, Any] = {"upid": upid, "filename": filename, "storage": storage_id}
+
+    if wait:
+        status = client.wait_task(upid, node=node_id, timeout=timeout, poll_interval=poll_interval)
+        result["status"] = status
+
+    return result
+
+
+@server.tool("proxmox-delete-storage-content")
+async def proxmox_delete_storage_content(
+    volid: str,
+    node: Optional[str] = None,
+    confirm: Optional[bool] = None,
+    dry_run: bool = False,
+) -> Dict[str, Any]:
+    """Delete content (ISO, template, backup, etc.) from Proxmox storage.
+
+    This tool deletes files from Proxmox storage such as ISO images,
+    container templates, or backup files.
+
+    IMPORTANT: Use 'proxmox-storage-content' first to list available content
+    and get the correct volid format.
+
+    Args:
+        volid: Volume ID to delete (e.g., 'local:iso/ubuntu.iso', 'local:vztmpl/debian.tar.gz')
+        node: Target node (defaults to PROXMOX_DEFAULT_NODE)
+        confirm: Confirm the operation (required for destructive operations)
+        dry_run: If True, only show what would be done
+    """
+    client = get_client()
+    node_id = node or client.default_node
+    if not node_id:
+        raise ValueError("node is required (or set PROXMOX_DEFAULT_NODE)")
+    if not volid:
+        raise ValueError("volid is required (e.g., 'local:iso/ubuntu.iso')")
+
+    require_confirm(confirm)
+
+    if dry_run:
+        return {
+            "dry_run": True,
+            "action": "delete-storage-content",
+            "params": {
+                "node": node_id,
+                "volid": volid,
+            }
+        }
+
+    result = client.delete_storage_content(node_id, volid)
+    return {"deleted": volid, "result": result if result else "success"}
+
+
+@server.tool("proxmox-list-appliance-templates")
+async def proxmox_list_appliance_templates(
+    node: Optional[str] = None,
+    section: Optional[str] = None,
+    search: Optional[str] = None,
+) -> List[Dict[str, Any]]:
+    """List available appliance templates from Proxmox repository.
+
+    This tool lists container templates available for download from the
+    official Proxmox repository (TurnKey, Debian, Ubuntu, etc.).
+
+    Args:
+        node: Target node (defaults to PROXMOX_DEFAULT_NODE)
+        section: Filter by section (e.g., 'system', 'turnkeylinux')
+        search: Search in template name or headline
+    """
+    client = get_client()
+    node_id = node or client.default_node
+    if not node_id:
+        raise ValueError("node is required (or set PROXMOX_DEFAULT_NODE)")
+
+    templates = client.list_appliance_templates(node_id)
+
+    # Apply filters
+    if section:
+        templates = [t for t in templates if t.get("section", "").lower() == section.lower()]
+    if search:
+        s = search.lower()
+        templates = [t for t in templates if s in t.get("template", "").lower() or s in t.get("headline", "").lower()]
+
+    return templates
+
+
+@server.tool("proxmox-download-appliance-template")
+async def proxmox_download_appliance_template(
+    template: str,
+    node: Optional[str] = None,
+    storage: Optional[str] = None,
+    confirm: Optional[bool] = None,
+    dry_run: bool = False,
+    wait: bool = False,
+    timeout: int = 600,
+    poll_interval: float = 5.0,
+) -> Dict[str, Any]:
+    """Download appliance template from Proxmox repository.
+
+    This tool downloads container templates from the official Proxmox
+    repository directly to your storage.
+
+    IMPORTANT: Use 'proxmox-list-appliance-templates' first to find available
+    templates and 'proxmox-list-storage' to get available storage names.
+
+    Args:
+        template: Template name (e.g., 'debian-12-standard_12.2-1_amd64.tar.zst')
+        node: Target node (defaults to PROXMOX_DEFAULT_NODE)
+        storage: Target storage (defaults to PROXMOX_DEFAULT_STORAGE)
+        confirm: Confirm the operation
+        dry_run: If True, only show what would be done
+        wait: If True, wait for download to complete
+        timeout: Timeout in seconds when waiting (default 600 = 10 min)
+        poll_interval: Poll interval in seconds when waiting
+    """
+    client = get_client()
+    node_id = node or client.default_node
+    storage_id = storage or client.default_storage
+    if not node_id or not storage_id:
+        raise ValueError("node and storage are required (or set defaults)")
+    if not template:
+        raise ValueError("template is required (use 'proxmox-list-appliance-templates' to find available templates)")
+
+    require_confirm(confirm)
+
+    if dry_run:
+        return {
+            "dry_run": True,
+            "action": "download-appliance-template",
+            "params": {
+                "node": node_id,
+                "storage": storage_id,
+                "template": template,
+            }
+        }
+
+    upid = client.download_appliance_template(node_id, storage_id, template)
+    result: Dict[str, Any] = {"upid": upid, "template": template, "storage": storage_id}
+
+    if wait:
+        status = client.wait_task(upid, node=node_id, timeout=timeout, poll_interval=poll_interval)
+        result["status"] = status
+
+    return result
+
+
 @server.tool("proxmox-template-vm")
 async def proxmox_template_vm(vmid: Optional[int] = None, name: Optional[str] = None, node: Optional[str] = None, confirm: Optional[bool] = None, dry_run: bool = False) -> Dict[str, Any]:
     client = get_client()
