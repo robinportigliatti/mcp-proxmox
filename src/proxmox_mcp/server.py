@@ -653,6 +653,40 @@ async def proxmox_configure_lxc(vmid: Optional[int] = None, name: Optional[str] 
     return result
 
 
+@server.tool("proxmox-lxc-exec")
+async def proxmox_lxc_exec(
+    vmid: Optional[int] = None,
+    name: Optional[str] = None,
+    node: Optional[str] = None,
+    command: str = "",
+    args: Optional[List[str]] = None,
+    ssh_user: str = "root",
+    ssh_private_key_path: Optional[str] = None,
+) -> Dict[str, Any]:
+    """Execute a command inside an LXC container.
+
+    NOTE: Proxmox API does not provide a direct exec endpoint for LXC containers.
+    This tool connects via SSH to the Proxmox node and runs 'pct exec'.
+
+    Requires SSH access to the Proxmox node. Configure via environment variables:
+    - PROXMOX_SSH_USER: SSH username (default: root)
+    - PROXMOX_SSH_PRIVATE_KEY: Path to SSH private key (optional)
+    - PROXMOX_NODE_<NODE>_HOST: IP/hostname for the node (e.g., PROXMOX_NODE_PVE_HOST)
+    """
+    client = get_client()
+    if not command:
+        raise ValueError("command is required")
+    ct_vmid, ct_node, _ = client.resolve_lxc(vmid=vmid, name=name, node=node)
+    return client.lxc_exec(
+        node=ct_node,
+        vmid=ct_vmid,
+        command=command,
+        args=args,
+        ssh_user=ssh_user,
+        ssh_private_key_path=ssh_private_key_path,
+    )
+
+
 # ---------- Cloud-init & networking ----------
 
 @server.tool("proxmox-cloudinit-set")

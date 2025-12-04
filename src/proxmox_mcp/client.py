@@ -1,6 +1,8 @@
 from __future__ import annotations
 
 import os
+import shlex
+import subprocess
 import time
 from typing import Any, Dict, List, Optional, Tuple
 
@@ -82,7 +84,9 @@ class ProxmoxClient:
         return vms
 
     def list_lxc(self, node: Optional[str] = None, status: Optional[str] = None, search: Optional[str] = None) -> List[Dict[str, Any]]:
-        lxcs = self._api.cluster.resources.get(type="lxc")
+        # Note: Proxmox API doesn't accept "lxc" as a type filter, so we get all resources and filter locally
+        all_resources = self._api.cluster.resources.get()
+        lxcs = [r for r in all_resources if r.get("type") == "lxc"]
         if node:
             lxcs = [c for c in lxcs if c.get("node") == node]
         if status:
@@ -114,7 +118,9 @@ class ProxmoxClient:
         return int(vm["vmid"]), str(vm["node"]), vm
 
     def resolve_lxc(self, vmid: Optional[int] = None, name: Optional[str] = None, node: Optional[str] = None) -> Tuple[int, str, Dict[str, Any]]:
-        resources = self._api.cluster.resources.get(type="lxc")
+        # Note: Proxmox API doesn't accept "lxc" as a type filter, so we get all resources and filter locally
+        all_resources = self._api.cluster.resources.get()
+        resources = [r for r in all_resources if r.get("type") == "lxc"]
         candidates: List[Dict[str, Any]] = []
         if vmid is not None:
             candidates = [r for r in resources if r.get("vmid") == vmid]
@@ -327,6 +333,85 @@ class ProxmoxClient:
     def configure_lxc(self, node: str, vmid: int, params: Dict[str, Any]) -> Dict[str, Any]:
         upid = self._api.nodes(node).lxc(vmid).config.put(**params)
         return {"upid": upid} if isinstance(upid, str) else {"result": upid}
+
+    def lxc_exec(
+        self,
+        node: str,
+        vmid: int,
+        command: str,
+        args: Optional[List[str]] = None,
+        ssh_user: str = "root",
+        ssh_private_key_path: Optional[str] = None,
+    ) -> Dict[str, Any]:
+        """Execute a command inside an LXC container via SSH to the Proxmox node + pct exec.
+
+        Proxmox API does not provide a direct exec endpoint for LXC containers (unlike QEMU guest agent).
+        This method connects via SSH to the Proxmox node and runs 'pct exec'.
+
+        Requires:
+        - SSH access to the Proxmox node
+        - The node must be reachable from the machine running this code
+
+        Environment variables:
+        - PROXMOX_SSH_USER: SSH username (default: root)
+        - PROXMOX_SSH_PRIVATE_KEY: Path to SSH private key (optional)
+        """
+        # Build the pct exec command with proper escaping
+        cmd_parts = [shlex.quote(command)]
+        if args:
+            cmd_parts.extend(shlex.quote(arg) for arg in args)
+        pct_command = f"pct exec {vmid} -- {' '.join(cmd_parts)}"
+
+        # Get SSH settings from env if not provided
+        ssh_user = ssh_user or os.environ.get("PROXMOX_SSH_USER", "root")
+        ssh_key = ssh_private_key_path or os.environ.get("PROXMOX_SSH_PRIVATE_KEY")
+
+        # Build SSH command
+        # First, we need the node's IP/hostname. Use the API URL host as fallback
+        # In a cluster, node might be different from API host
+        node_host = os.environ.get(f"PROXMOX_NODE_{node.upper()}_HOST", parse_api_url(self.base_url)["host"])
+
+        ssh_cmd = ["ssh", "-o", "StrictHostKeyChecking=accept-new", "-o", "BatchMode=yes"]
+        if ssh_key:
+            ssh_cmd.extend(["-i", ssh_key])
+        ssh_cmd.extend([f"{ssh_user}@{node_host}", pct_command])
+
+        try:
+            result = subprocess.run(
+                ssh_cmd,
+                capture_output=True,
+                text=True,
+                timeout=60,
+            )
+            return {
+                "success": result.returncode == 0,
+                "exit_code": result.returncode,
+                "stdout": result.stdout,
+                "stderr": result.stderr,
+                "command": pct_command,
+                "node": node,
+                "vmid": vmid,
+            }
+        except subprocess.TimeoutExpired:
+            return {
+                "success": False,
+                "exit_code": -1,
+                "stdout": "",
+                "stderr": "Command timed out after 60 seconds",
+                "command": pct_command,
+                "node": node,
+                "vmid": vmid,
+            }
+        except Exception as e:
+            return {
+                "success": False,
+                "exit_code": -1,
+                "stdout": "",
+                "stderr": str(e),
+                "command": pct_command,
+                "node": node,
+                "vmid": vmid,
+            }
 
     # -------- Cloud-init & networking --------
     def cloudinit_set(self, node: str, vmid: int, params: Dict[str, Any]) -> Dict[str, Any]:
